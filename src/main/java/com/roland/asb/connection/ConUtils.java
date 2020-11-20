@@ -233,6 +233,33 @@ public class ConUtils {
         sender.close();
     }
 
+    // Receive batch of messages from Queue or Subscription with Message Content input as Byte Array
+    public static void receiveBatchMessages(String connectionString, String entityPath, int maxMessageCount) throws Exception {
+        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+
+        // receive messages from queue
+        String receivedMessageId = "";
+
+        System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
+        for(int i=0; i<maxMessageCount; i++) {
+            IMessage receivedMessage = receiver.receive(Duration.ofSeconds(5));
+
+            if (receivedMessage == null) {
+                continue;
+            }
+            System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+            System.out.printf("\t<= Received a message with messageBody %s\n", new String(receivedMessage.getBody(), UTF_8));
+            receiver.complete(receivedMessage.getLockToken());
+            if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
+                throw new Exception("Received a duplicate message!");
+            }
+            receivedMessageId = receivedMessage.getMessageId();
+        }
+        System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+
+        receiver.close();
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
 
     // Send message to Queue or Topic
