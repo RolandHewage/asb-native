@@ -34,6 +34,15 @@ public class ConUtils {
         }
     }
 
+    // Close Receiver Connection
+    public static void closeSenderConnection(IMessageSender sender) throws Exception {
+        try{
+            sender.close();
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
 
     // Send message to Queue or Topic
