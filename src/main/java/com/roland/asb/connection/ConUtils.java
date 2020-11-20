@@ -53,6 +53,15 @@ public class ConUtils {
         }
     }
 
+    // Close Receiver Connection
+    public static void closeReceiverConnection(IMessageReceiver receiver) throws Exception {
+        try{
+            receiver.close();
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
 
     // Send message to Queue or Topic
