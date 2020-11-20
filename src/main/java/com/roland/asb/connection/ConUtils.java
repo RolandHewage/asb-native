@@ -138,7 +138,9 @@ public class ConUtils {
         }
 
         // Send messages to queue
+        LOG.info("\tSending messages to  ...\n");
         System.out.printf("\tSending messages to %s ...\n", sender.getEntityPath());
+        LOG.info("\tSending messages to  ...\n");
         IMessage message = new Message();
         message.setMessageId(messageId);
         message.setTimeToLive(Duration.ofMinutes(timeToLive));
