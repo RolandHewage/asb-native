@@ -43,6 +43,16 @@ public class ConUtils {
         }
     }
 
+    // Create Receiver Connection
+    public static IMessageReceiver createReceiverConnection(String connectionString, String entityPath) throws Exception {
+        try{
+            IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+            return receiver;
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
 
     // Send message to Queue or Topic
