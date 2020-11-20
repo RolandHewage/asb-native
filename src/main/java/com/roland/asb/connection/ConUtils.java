@@ -100,6 +100,75 @@ public class ConUtils {
         return returnMap;
     }
 
+    // Send Message with configurable parameters as Map when Sender Connection is given as a parameter and message content as a byte array
+    public static void sendBytesMessageViaSenderConnectionWithConfigurableParameters(IMessageSender sender, BArray content, BMap<String, String> parameters, BMap<String, String> properties) throws Exception {
+        Map<String,String> map = toStringMap(parameters);
+
+        String contentType = "";
+        String messageId = UUID.randomUUID().toString();;
+        String to = "";
+        String replyTo = "";
+        String label = "";
+        String sessionId = "";
+        String correlationId = "";
+        int timeToLive = 1;
+        if (map.containsKey("contentType")) {
+            contentType = (String)map.get("contentType");
+            System.out.println(contentType);
+        }
+        if (map.containsKey("messageId")) {
+            messageId = (String) map.get("messageId");
+            System.out.println(messageId);
+        }
+        if (map.containsKey("to")) {
+            to = (String) map.get("to");
+            System.out.println(to);
+        }
+        if (map.containsKey("replyTo")) {
+            replyTo = (String) map.get("replyTo");
+            System.out.println(replyTo);
+        }
+        if (map.containsKey("label")) {
+            label = (String) map.get("label");
+            System.out.println(label);
+        }
+        if (map.containsKey("sessionId")) {
+            sessionId = (String) map.get("sessionId");
+            System.out.println(sessionId);
+        }
+        if (map.containsKey("correlationId")) {
+            correlationId = (String) map.get("correlationId");
+            System.out.println(correlationId);
+        }
+        if (map.containsKey("timeToLive")) {
+            timeToLive = Integer.parseInt(map.get("timeToLive"));
+            System.out.println(timeToLive);
+        }
+
+        System.out.println(map);
+        System.out.println(parameters.values());
+
+        // Send messages to queue
+        System.out.printf("\tSending messages to %s ...\n", sender.getEntityPath());
+        IMessage message = new Message();
+        message.setMessageId(messageId);
+        message.setTimeToLive(Duration.ofMinutes(timeToLive));
+        byte[] byteArray = content.getBytes();
+        message.setBody(byteArray);
+        message.setContentType(contentType);
+        message.setMessageId(messageId);
+        message.setTo(to);
+        message.setReplyTo(replyTo);
+        message.setLabel(label);
+        message.setSessionId(sessionId);
+        message.setCorrelationId(correlationId);
+        Map<String,String> propertiesMap = toStringMap(properties);
+        message.setProperties(propertiesMap);
+
+        sender.send(message);
+        System.out.printf("\t=> Sent a message with messageId %s\n", message.getMessageId());
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
 
     // Send message to Queue or Topic
