@@ -197,6 +197,16 @@ public class ConUtils {
         return messages;
     }
 
+    // check message
+    public static void checkMessage(ArrayList<IMessage> messages) throws Exception {
+        for (IMessage msg:messages
+        ) {
+            System.out.printf("\t<= Received a message with messageparameters.getKeys()Id %s\n", msg.getMessageId());
+            System.out.printf("\t<= Received a message with messageBody %s\n", new String(msg.getBody(), UTF_8));
+        }
+        System.out.printf("\tDone viewing messages\n");
+    }
+
     // -----------------------------------------------------------------------------------------------------------------
 
     // Send message to Queue or Topic
