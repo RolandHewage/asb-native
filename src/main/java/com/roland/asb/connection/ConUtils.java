@@ -2,6 +2,7 @@ package com.roland.asb.connection;
 
 import com.microsoft.azure.servicebus.*;
 import com.microsoft.azure.servicebus.primitives.ConnectionStringBuilder;
+import org.ballerinalang.jvm.api.values.BArray;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -61,6 +62,33 @@ public class ConUtils {
             throw e;
         }
     }
+
+//    // Send Message with configurable parameters when Sender Connection is given as a parameter and message content as a byte array
+//    public static void sendBytesMessageWithConfigurableParameters(IMessageSender sender, BArray content, String contentType, String messageId, String to,
+//                                                                  String replyTo, String label,
+//                                                                  String sessionId, String correlationId,
+//                                                                  BMap<String, String> properties, int timeToLive) throws Exception {
+//        // Send messages to queue
+//        System.out.printf("\tSending messages to %s ...\n", sender.getEntityPath());
+//        IMessage message = new Message();
+//        message.setMessageId(messageId);
+//        message.setTimeToLive(Duration.ofMinutes(timeToLive));
+//        byte[] byteArray = content.getBytes();
+//        message.setBody(byteArray);
+//        message.setContentType(contentType);
+//        message.setMessageId(messageId);
+//        message.setTo(to);
+//        message.setReplyTo(replyTo);
+//        message.setLabel(label);
+//        message.setSessionId(sessionId);
+//        message.setCorrelationId(correlationId);
+//        Map<String,String> map = toStringMap(properties);
+//        message.setProperties(map);
+//        System.out.println(map);
+//
+//        sender.send(message);
+//        System.out.printf("\t=> Sent a message with messageId %s\n", message.getMessageId());
+//    }
 
     // -----------------------------------------------------------------------------------------------------------------
 
