@@ -24,6 +24,18 @@ public class ConUtils {
         this.connectionString = connectionString;
     }
 
+    // Create Sender Connection
+    public static IMessageSender createSenderConnection(String connectionString, String entityPath) throws Exception {
+        try{
+            IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath));
+            return sender;
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------
+
     // Send message to Queue or Topic
     public static void send(String connectionString, String entityPath, String content) throws Exception {
         IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath));
