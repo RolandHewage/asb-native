@@ -198,7 +198,7 @@ public class ConUtils {
             System.out.printf("\t<= Received a message with label %s\n", msg.getLabel());
             System.out.printf("\t<= Received a message with sessionId %s\n", msg.getSessionId());
             System.out.printf("\t<= Received a message with correlationId %s\n", msg.getCorrelationId());
-            System.out.printf("\t<= Received a message with timeToLive %s\n", msg.getTimeToLive());
+            System.out.printf("\t<= Received a message with timeToLive %s min\n", msg.getTimeToLive().toMinutes());
         }
         System.out.printf("\tDone viewing messages\n");
     }
