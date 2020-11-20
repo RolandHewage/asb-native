@@ -114,39 +114,28 @@ public class ConUtils {
         int timeToLive = 1;
         if (map.containsKey("contentType")) {
             contentType = (String)map.get("contentType");
-            System.out.println(contentType);
         }
         if (map.containsKey("messageId")) {
             messageId = (String) map.get("messageId");
-            System.out.println(messageId);
         }
         if (map.containsKey("to")) {
             to = (String) map.get("to");
-            System.out.println(to);
         }
         if (map.containsKey("replyTo")) {
             replyTo = (String) map.get("replyTo");
-            System.out.println(replyTo);
         }
         if (map.containsKey("label")) {
             label = (String) map.get("label");
-            System.out.println(label);
         }
         if (map.containsKey("sessionId")) {
             sessionId = (String) map.get("sessionId");
-            System.out.println(sessionId);
         }
         if (map.containsKey("correlationId")) {
             correlationId = (String) map.get("correlationId");
-            System.out.println(correlationId);
         }
         if (map.containsKey("timeToLive")) {
             timeToLive = Integer.parseInt(map.get("timeToLive"));
-            System.out.println(timeToLive);
         }
-
-        System.out.println(map);
-        System.out.println(parameters.values());
 
         // Send messages to queue
         System.out.printf("\tSending messages to %s ...\n", sender.getEntityPath());
@@ -201,8 +190,15 @@ public class ConUtils {
     public static void checkMessage(ArrayList<IMessage> messages) throws Exception {
         for (IMessage msg:messages
         ) {
-            System.out.printf("\t<= Received a message with messageparameters.getKeys()Id %s\n", msg.getMessageId());
+            System.out.printf("\t<= Received a message with messageId %s\n", msg.getMessageId());
             System.out.printf("\t<= Received a message with messageBody %s\n", new String(msg.getBody(), UTF_8));
+            System.out.printf("\t<= Received a message with contentType %s\n", msg.getContentType());
+            System.out.printf("\t<= Received a message with to %s\n", msg.getTo());
+            System.out.printf("\t<= Received a message with replyTo %s\n", msg.getReplyTo());
+            System.out.printf("\t<= Received a message with label %s\n", msg.getLabel());
+            System.out.printf("\t<= Received a message with sessionId %s\n", msg.getSessionId());
+            System.out.printf("\t<= Received a message with correlationId %s\n", msg.getCorrelationId());
+            System.out.printf("\t<= Received a message with timeToLive %s\n", msg.getTimeToLive());
         }
         System.out.printf("\tDone viewing messages\n");
     }
