@@ -1,4 +1,5 @@
 com/roland/asb/connection/ConUtils.class
 com/roland/asb/AsbConstants.class
+com/roland/asb/AsbMessageUtils.class
 com/roland/asb/AsbConnector.class
 com/roland/asb/AsbUtils.class
