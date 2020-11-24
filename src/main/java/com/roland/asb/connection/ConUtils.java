@@ -244,13 +244,14 @@ public class ConUtils {
 
     // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
     // message content as a byte array and return message list
-    public static ArrayList<Object> receiveTwoBytesMessageViaReceiverConnectionWithConfigurableParameters(
+    public static Object receiveTwoBytesMessageViaReceiverConnectionWithConfigurableParameters(
             IMessageReceiver receiver) throws Exception {
 
         // receive messages from queue or subscription
         String receivedMessageId = "";
 
-        ArrayList<Object> messages = new ArrayList<>();
+        BObject messagesBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
+                AsbConstants.MESSAGES_OBJECT);
 
         System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
         while (true) {
@@ -266,14 +267,15 @@ public class ConUtils {
             BObject messageBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
                     AsbConstants.MESSAGE_OBJECT);
             messageBObject.set(AsbConstants.MESSAGE_CONTENT, BValueCreator.createArrayValue(receivedMessage.getBody()));
-            messages.add(messageBObject);
+            messagesBObject.set(AsbConstants.MESSAGES_CONTENT, messageBObject);
+
             if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
                 throw new Exception("Received a duplicate message!");
             }
             receivedMessageId = receivedMessage.getMessageId();
         }
         System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
-        return messages;
+        return messagesBObject;
     }
 
     // check message
