@@ -290,7 +290,7 @@ public class ConUtils {
         System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
         if(sourceArrayType != null) {
             messagesBObject.set(AsbConstants.MESSAGES_CONTENT, BValueCreator.createArrayValue(bObjectArray, sourceArrayType));
-            messagesBObject.set(AsbConstants.DELIVERY_TAG, 6);
+            messagesBObject.set(AsbConstants.DELIVERY_TAG, i);
         }
         return messagesBObject;
     }
