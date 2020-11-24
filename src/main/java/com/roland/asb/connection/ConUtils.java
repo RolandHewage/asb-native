@@ -10,6 +10,9 @@ import org.ballerinalang.jvm.api.values.BMap;
 import org.ballerinalang.jvm.api.values.BObject;
 import org.ballerinalang.jvm.api.values.BString;
 import org.ballerinalang.jvm.api.BValueCreator;
+import org.ballerinalang.jvm.types.BArrayType;
+import org.ballerinalang.jvm.types.BObjectType;
+import org.ballerinalang.jvm.types.BType;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -249,6 +252,9 @@ public class ConUtils {
 
         // receive messages from queue or subscription
         String receivedMessageId = "";
+        BArrayType sourceArrayType = null;
+        BObject[] bObjectArray = new BObject[2];
+        int i = 0;
 
         BObject messagesBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
                 AsbConstants.MESSAGES_OBJECT);
@@ -264,17 +270,28 @@ public class ConUtils {
             System.out.printf("\t<= Received a message with messageBody %s\n",
                     new String(receivedMessage.getBody(), UTF_8));
             receiver.complete(receivedMessage.getLockToken());
-            BObject messageBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
-                    AsbConstants.MESSAGE_OBJECT);
-            messageBObject.set(AsbConstants.MESSAGE_CONTENT, BValueCreator.createArrayValue(receivedMessage.getBody()));
-            messagesBObject.set(AsbConstants.MESSAGES_CONTENT, messageBObject);
+
+//            BString[] ob = new BString[2];
+//            ob[0] = BStringUtils.fromString(new String(receivedMessage.getBody(), UTF_8));
+//            ob[1] = BStringUtils.fromString(new String(receivedMessage.getBody(), UTF_8));
 
             if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
                 throw new Exception("Received a duplicate message!");
             }
             receivedMessageId = receivedMessage.getMessageId();
+
+            BObject messageBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
+                    AsbConstants.MESSAGE_OBJECT);
+            messageBObject.set(AsbConstants.MESSAGE_CONTENT, BValueCreator.createArrayValue(receivedMessage.getBody()));
+            bObjectArray[i] = messageBObject;
+            i = i + 1;
+            sourceArrayType = new BArrayType(messageBObject.getType());
         }
         System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+        if(sourceArrayType != null) {
+            messagesBObject.set(AsbConstants.MESSAGES_CONTENT, BValueCreator.createArrayValue(bObjectArray, sourceArrayType));
+            messagesBObject.set(AsbConstants.DELIVERY_TAG, 6);
+        }
         return messagesBObject;
     }
 
