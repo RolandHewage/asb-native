@@ -2,9 +2,16 @@ package com.roland.asb.connection;
 
 import com.microsoft.azure.servicebus.*;
 import com.microsoft.azure.servicebus.primitives.ConnectionStringBuilder;
+import com.roland.asb.AsbConstants;
+import com.roland.asb.AsbMessageUtils;
+import org.ballerinalang.jvm.api.BStringUtils;
 import org.ballerinalang.jvm.api.values.BArray;
 import org.ballerinalang.jvm.api.values.BMap;
+import org.ballerinalang.jvm.api.values.BObject;
+import org.ballerinalang.jvm.api.values.BString;
+import org.ballerinalang.jvm.api.BValueCreator;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 import java.util.logging.Logger;
@@ -27,7 +34,8 @@ public class ConUtils {
     // Create Sender Connection
     public static IMessageSender createSenderConnection(String connectionString, String entityPath) throws Exception {
         try{
-            IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath));
+            IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(
+                    new ConnectionStringBuilder(connectionString, entityPath));
             return sender;
         } catch (Exception e) {
             throw e;
@@ -44,9 +52,11 @@ public class ConUtils {
     }
 
     // Create Receiver Connection
-    public static IMessageReceiver createReceiverConnection(String connectionString, String entityPath) throws Exception {
+    public static IMessageReceiver createReceiverConnection(String connectionString, String entityPath)
+            throws Exception {
         try{
-            IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+            IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(
+                    new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
             return receiver;
         } catch (Exception e) {
             throw e;
@@ -62,11 +72,14 @@ public class ConUtils {
         }
     }
 
-    // Send Message with configurable parameters when Sender Connection is given as a parameter and message content as a byte array
-    public static void sendBytesMessageWithConfigurableParameters(IMessageSender sender, BArray content, String contentType, String messageId, String to,
+    // Send Message with configurable parameters when Sender Connection is given as a parameter and
+    // message content as a byte array
+    public static void sendBytesMessageWithConfigurableParameters(IMessageSender sender, BArray content,
+                                                                  String contentType, String messageId, String to,
                                                                   String replyTo, String label,
                                                                   String sessionId, String correlationId,
-                                                                  BMap<String, String> properties, int timeToLive) throws Exception {
+                                                                  BMap<String, String> properties, int timeToLive)
+            throws Exception {
         // Send messages to queue
         System.out.printf("\tSending messages to %s ...\n", sender.getEntityPath());
         IMessage message = new Message();
@@ -100,8 +113,13 @@ public class ConUtils {
         return returnMap;
     }
 
-    // Send Message with configurable parameters as Map when Sender Connection is given as a parameter and message content as a byte array
-    public static void sendBytesMessageViaSenderConnectionWithConfigurableParameters(IMessageSender sender, BArray content, BMap<String, String> parameters, BMap<String, String> properties) throws Exception {
+    // Send Message with configurable parameters as Map when Sender Connection is given as a parameter and
+    // message content as a byte array
+    public static void sendBytesMessageViaSenderConnectionWithConfigurableParameters(IMessageSender sender,
+                                                                                     BArray content,
+                                                                                     BMap<String, String> parameters,
+                                                                                     BMap<String, String> properties)
+            throws Exception {
         Map<String,String> map = toStringMap(parameters);
 
         String contentType = "";
@@ -160,8 +178,10 @@ public class ConUtils {
         System.out.printf("\t=> Sent a message with messageId %s\n", message.getMessageId());
     }
 
-    // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and message content as a byte array and return message list
-    public static ArrayList<IMessage> receiveBytesMessageViaReceiverConnectionWithConfigurableParameters(IMessageReceiver receiver) throws Exception {
+    // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
+    // message content as a byte array and return message list
+    public static ArrayList<IMessage> receiveBytesMessageViaReceiverConnectionWithConfigurableParameters(
+            IMessageReceiver receiver) throws Exception {
 
         // receive messages from queue or subscription
         String receivedMessageId = "";
@@ -176,9 +196,77 @@ public class ConUtils {
                 break;
             }
             System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
-            System.out.printf("\t<= Received a message with messageBody %s\n", new String(receivedMessage.getBody(), UTF_8));
+            System.out.printf("\t<= Received a message with messageBody %s\n",
+                    new String(receivedMessage.getBody(), UTF_8));
             receiver.complete(receivedMessage.getLockToken());
             messages.add(receivedMessage);
+            if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
+                throw new Exception("Received a duplicate message!");
+            }
+            receivedMessageId = receivedMessage.getMessageId();
+        }
+        System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+        return messages;
+    }
+
+    // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
+    // message content as a byte array and return message list
+    public static Object receiveOneBytesMessageViaReceiverConnectionWithConfigurableParameters(
+            IMessageReceiver receiver) throws Exception {
+
+        // receive messages from queue or subscription
+        String receivedMessageId = "";
+
+        System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
+
+        IMessage receivedMessage = receiver.receive(Duration.ofSeconds(5));
+
+        if (receivedMessage == null) {
+            return null;
+        }
+        System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+        System.out.printf("\t<= Received a message with messageBody %s\n",
+                new String(receivedMessage.getBody(), UTF_8));
+        receiver.complete(receivedMessage.getLockToken());
+        if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
+            throw new Exception("Received a duplicate message!");
+        }
+        receivedMessageId = receivedMessage.getMessageId();
+
+        System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+
+        BObject messageBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
+                AsbConstants.MESSAGE_OBJECT);
+        messageBObject.set(AsbConstants.MESSAGE_CONTENT, BValueCreator.createArrayValue(receivedMessage.getBody()));
+
+        return messageBObject;
+    }
+
+    // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
+    // message content as a byte array and return message list
+    public static ArrayList<Object> receiveTwoBytesMessageViaReceiverConnectionWithConfigurableParameters(
+            IMessageReceiver receiver) throws Exception {
+
+        // receive messages from queue or subscription
+        String receivedMessageId = "";
+
+        ArrayList<Object> messages = new ArrayList<>();
+
+        System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
+        while (true) {
+            IMessage receivedMessage = receiver.receive(Duration.ofSeconds(5));
+
+            if (receivedMessage == null) {
+                break;
+            }
+            System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+            System.out.printf("\t<= Received a message with messageBody %s\n",
+                    new String(receivedMessage.getBody(), UTF_8));
+            receiver.complete(receivedMessage.getLockToken());
+            BObject messageBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
+                    AsbConstants.MESSAGE_OBJECT);
+            messageBObject.set(AsbConstants.MESSAGE_CONTENT, BValueCreator.createArrayValue(receivedMessage.getBody()));
+            messages.add(messageBObject);
             if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
                 throw new Exception("Received a duplicate message!");
             }
@@ -206,8 +294,10 @@ public class ConUtils {
     }
 
     // Send batch of messages to Queue or Topic with Message Content input as Byte Array
-    public static void sendBatchMessages(String connectionString, String entityPath, BArray content, int maxMessageCount) throws Exception {
-        IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath));
+    public static void sendBatchMessages(String connectionString, String entityPath, BArray content,
+                                         int maxMessageCount) throws Exception {
+        IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(
+                new ConnectionStringBuilder(connectionString, entityPath));
 
         List<IMessage> messages = new ArrayList<>();
 
@@ -232,8 +322,10 @@ public class ConUtils {
     }
 
     // Receive batch of messages from Queue or Subscription with Message Content input as Byte Array
-    public static void receiveBatchMessages(String connectionString, String entityPath, int maxMessageCount) throws Exception {
-        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+    public static void receiveBatchMessages(String connectionString, String entityPath, int maxMessageCount)
+            throws Exception {
+        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(
+                new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
 
         // receive messages from queue
         String receivedMessageId = "";
@@ -246,7 +338,8 @@ public class ConUtils {
                 continue;
             }
             System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
-            System.out.printf("\t<= Received a message with messageBody %s\n", new String(receivedMessage.getBody(), UTF_8));
+            System.out.printf("\t<= Received a message with messageBody %s\n",
+                    new String(receivedMessage.getBody(), UTF_8));
             receiver.complete(receivedMessage.getLockToken());
             if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
                 throw new Exception("Received a duplicate message!");
@@ -262,7 +355,8 @@ public class ConUtils {
 
     // Send message to Queue or Topic
     public static void send(String connectionString, String entityPath, String content) throws Exception {
-        IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath));
+        IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(
+                new ConnectionStringBuilder(connectionString, entityPath));
 
         String messageId = UUID.randomUUID().toString();
         // Send messages to queue
@@ -280,7 +374,8 @@ public class ConUtils {
 
     // Receive message from Queue or Subscription
     public static void receive(String connectionString, String entityPath) throws Exception {
-        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(
+                new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
 
         // receive messages from queue
         String receivedMessageId = "";
@@ -293,7 +388,8 @@ public class ConUtils {
                 break;
             }
             System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
-            System.out.printf("\t<= Received a message with messageBody %s\n", new String(receivedMessage.getBody(), UTF_8));
+            System.out.printf("\t<= Received a message with messageBody %s\n",
+                    new String(receivedMessage.getBody(), UTF_8));
             receiver.complete(receivedMessage.getLockToken());
             if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
                 throw new Exception("Received a duplicate message!");
@@ -306,8 +402,10 @@ public class ConUtils {
     }
 
     // Send batch of messages to Queue or Topic
-    public static void sendBatch(String connectionString, String entityPath, String content, int maxMessageCount) throws Exception {
-        IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath));
+    public static void sendBatch(String connectionString, String entityPath, String content, int maxMessageCount)
+            throws Exception {
+        IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(
+                new ConnectionStringBuilder(connectionString, entityPath));
 
         List<IMessage> messages = new ArrayList<>();
 
@@ -334,7 +432,8 @@ public class ConUtils {
 
     // Receive batch of messages from Queue or Subscription
     public static void receiveBatch(String connectionString, String entityPath, int maxMessageCount) throws Exception {
-        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(
+                new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
 
         // receive messages from queue
         String receivedMessageId = "";
@@ -347,7 +446,8 @@ public class ConUtils {
                 continue;
             }
             System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
-            System.out.printf("\t<= Received a message with messageBody %s\n", new String(receivedMessage.getBody(), UTF_8));
+            System.out.printf("\t<= Received a message with messageBody %s\n",
+                    new String(receivedMessage.getBody(), UTF_8));
             receiver.complete(receivedMessage.getLockToken());
             if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
                 throw new Exception("Received a duplicate message!");
@@ -361,7 +461,8 @@ public class ConUtils {
 
     // Completes messages from Queue or Subscription based on messageLockToken
     public static void complete(String connectionString, String entityPath) throws Exception {
-        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(
+                new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
 
         // receive messages from queue
         String receivedMessageId = "";
@@ -388,9 +489,11 @@ public class ConUtils {
 
     // Completes message from Queue or Subscription based on messageLockToken
     public static void completeMessage(String connectionString, String entityPath) throws Exception {
-        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(
+                new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
 
-        System.out.printf("\nWaiting up to default server wait time for messages from %s ...\n", receiver.getEntityPath());
+        System.out.printf("\nWaiting up to default server wait time for messages from %s ...\n",
+                receiver.getEntityPath());
 
         IMessage receivedMessage = receiver.receive();
 
@@ -409,9 +512,11 @@ public class ConUtils {
 
     // Abandon message & make available again for processing from Queue or Subscription based on messageLockToken
     public static void abandon(String connectionString, String entityPath) throws Exception {
-        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+        IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(
+                new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
 
-        System.out.printf("\n\tWaiting up to default server wait time for messages from %s ...\n", receiver.getEntityPath());
+        System.out.printf("\n\tWaiting up to default server wait time for messages from %s ...\n",
+                receiver.getEntityPath());
         IMessage receivedMessage = receiver.receive();
 
         if (receivedMessage != null) {
