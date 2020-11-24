@@ -183,37 +183,6 @@ public class ConUtils {
 
     // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
     // message content as a byte array and return message list
-    public static ArrayList<IMessage> receiveBytesMessageViaReceiverConnectionWithConfigurableParameters(
-            IMessageReceiver receiver) throws Exception {
-
-        // receive messages from queue or subscription
-        String receivedMessageId = "";
-
-        ArrayList<IMessage> messages = new ArrayList<>();
-
-        System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
-        while (true) {
-            IMessage receivedMessage = receiver.receive(Duration.ofSeconds(5));
-
-            if (receivedMessage == null) {
-                break;
-            }
-            System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
-            System.out.printf("\t<= Received a message with messageBody %s\n",
-                    new String(receivedMessage.getBody(), UTF_8));
-            receiver.complete(receivedMessage.getLockToken());
-            messages.add(receivedMessage);
-            if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
-                throw new Exception("Received a duplicate message!");
-            }
-            receivedMessageId = receivedMessage.getMessageId();
-        }
-        System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
-        return messages;
-    }
-
-    // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
-    // message content as a byte array and return message list
     public static Object receiveOneBytesMessageViaReceiverConnectionWithConfigurableParameters(
             IMessageReceiver receiver) throws Exception {
 
@@ -293,6 +262,37 @@ public class ConUtils {
             messagesBObject.set(AsbConstants.DELIVERY_TAG, i);
         }
         return messagesBObject;
+    }
+
+    // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
+    // message content as a byte array and return message list
+    public static ArrayList<IMessage> receiveBytesMessageViaReceiverConnectionWithConfigurableParameters(
+            IMessageReceiver receiver) throws Exception {
+
+        // receive messages from queue or subscription
+        String receivedMessageId = "";
+
+        ArrayList<IMessage> messages = new ArrayList<>();
+
+        System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
+        while (true) {
+            IMessage receivedMessage = receiver.receive(Duration.ofSeconds(5));
+
+            if (receivedMessage == null) {
+                break;
+            }
+            System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+            System.out.printf("\t<= Received a message with messageBody %s\n",
+                    new String(receivedMessage.getBody(), UTF_8));
+            receiver.complete(receivedMessage.getLockToken());
+            messages.add(receivedMessage);
+            if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
+                throw new Exception("Received a duplicate message!");
+            }
+            receivedMessageId = receivedMessage.getMessageId();
+        }
+        System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+        return messages;
     }
 
     // check message
