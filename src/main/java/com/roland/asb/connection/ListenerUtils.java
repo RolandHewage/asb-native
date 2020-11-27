@@ -1,6 +1,7 @@
 package com.roland.asb.connection;
 
 import com.roland.asb.AsbConstants;
+import com.roland.asb.MessageDispatcher;
 import org.ballerinalang.jvm.api.BRuntime;
 import org.ballerinalang.jvm.api.values.BObject;
 
