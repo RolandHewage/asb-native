@@ -59,11 +59,9 @@ public class ListenerUtils {
                 MessageDispatcher messageDispatcher =
                         new MessageDispatcher(service, runtime);
                 messageDispatcher.receiveMessages(listenerBObject);
-                System.out.println("Ross1");
             }
         }
         started = true;
-        System.out.println("Roland1");
         return null;
     }
 

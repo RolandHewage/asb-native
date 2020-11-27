@@ -131,7 +131,6 @@ public class MessageDispatcher {
 
     private void handleDispatch(byte[] message) {
         AttachedFunction[] attachedFunctions = service.getType().getAttachedFunctions();
-        System.out.println(attachedFunctions[0].getName());
         AttachedFunction onMessageFunction;
         if (FUNC_ON_MESSAGE.equals(attachedFunctions[0].getName())) {
             onMessageFunction = attachedFunctions[0];
