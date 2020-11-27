@@ -42,6 +42,7 @@ public class AsbConstants {
 
     public static final BString QUEUE_NAME = BStringUtils.fromString("queueName");
     public static final BString CONNECTION_STRING = BStringUtils.fromString("connectionString");
+    public static final String CONNECTION_NATIVE_OBJECT = "asb_connection_object";
 
     public static final String UNCHECKED = "unchecked";
 

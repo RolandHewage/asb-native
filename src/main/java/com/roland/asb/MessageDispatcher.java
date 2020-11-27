@@ -35,18 +35,20 @@ public class MessageDispatcher {
     private String queueName;
     private String connectionKey;
     private BRuntime runtime;
+    private QueueClient receiver;
     private static final StrandMetadata ON_MESSAGE_METADATA = new StrandMetadata(ORG_NAME, ASB,
             ASB_VERSION, FUNC_ON_MESSAGE);
 
-    public MessageDispatcher(BObject service, BRuntime runtime) {
+    public MessageDispatcher(BObject service, BRuntime runtime, QueueClient iMessageReceiver) {
         this.service = service;
         this.queueName = getQueueNameFromConfig(service);
         this.connectionKey = getConnectionStringFromConfig(service);
         this.consumerTag = service.getType().getName();
         this.runtime = runtime;
+        this.receiver = iMessageReceiver;
     }
 
-    private String getQueueNameFromConfig(BObject service) {
+    public static String getQueueNameFromConfig(BObject service) {
         BMap serviceConfig = (BMap) ((AnnotatableType) service.getType())
                 .getAnnotation(BStringUtils.fromString(AsbConstants.PACKAGE_RABBITMQ_FQN + ":"
                         + AsbConstants.SERVICE_CONFIG));
@@ -56,7 +58,7 @@ public class MessageDispatcher {
         return queueConfig.getStringValue(AsbConstants.QUEUE_NAME).getValue();
     }
 
-    private String getConnectionStringFromConfig(BObject service) {
+    public static String getConnectionStringFromConfig(BObject service) {
         BMap serviceConfig = (BMap) ((AnnotatableType) service.getType())
                 .getAnnotation(BStringUtils.fromString(AsbConstants.PACKAGE_RABBITMQ_FQN + ":"
                         + AsbConstants.SERVICE_CONFIG));
@@ -71,12 +73,40 @@ public class MessageDispatcher {
         String entityPath = queueName;
         System.out.println("[ballerina/rabbitmq] Consumer service started for queue " + queueName);
 
-        try{
-            QueueClient receiveClient = new QueueClient(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
-            ExecutorService executorService = Executors.newSingleThreadExecutor();
-            this.registerReceiver(receiveClient, executorService);
+//        try{
+////            IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+//            String receivedMessageId = "";
+//
+//            System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
+//            while (true) {
+//                IMessage receivedMessage = receiver.receive(Duration.ofSeconds(5));
+//
+//                if (receivedMessage == null) {
+//                    break;
+//                }
+//                System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+//                System.out.printf("\t<= Received a message with messageBody %s\n", new String(receivedMessage.getBody(), UTF_8));
+//                handleDispatch(receivedMessage.getBody());
+//                receiver.complete(receivedMessage.getLockToken());
+//                if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
+//                    throw new Exception("Received a duplicate message!");
+//                }
+//                receivedMessageId = receivedMessage.getMessageId();
+//            }
+//            System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+//        } catch (Exception e) {
+//
+//        }
 
-            System.out.printf("\tDone receiving messages from %s\n", receiveClient.getEntityPath());
+        try{
+//            QueueClient receiveClient = new QueueClient(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+            ExecutorService executorService = Executors.newSingleThreadExecutor();
+            this.registerReceiver(receiver, executorService);
+
+            waitForEnter(120);
+
+            System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+            receiver.close();
         } catch (Exception e) {
 
         }
@@ -89,7 +119,7 @@ public class MessageDispatcher {
 
     public void registerReceiver(QueueClient queueClient, ExecutorService executorService) throws Exception {
 
-
+        System.out.println("Hello Baby");
         // register the RegisterMessageHandler callback with executor service
         queueClient.registerMessageHandler(new IMessageHandler() {
                                                // callback invoked when the message handler loop has obtained a message

@@ -1,11 +1,23 @@
 package com.roland.asb.connection;
 
+import com.microsoft.azure.servicebus.IMessage;
+import com.microsoft.azure.servicebus.IMessageReceiver;
+import com.microsoft.azure.servicebus.QueueClient;
+import com.microsoft.azure.servicebus.ReceiveMode;
+import com.microsoft.azure.servicebus.primitives.ConnectionStringBuilder;
 import com.roland.asb.AsbConstants;
+import com.roland.asb.AsbUtils;
 import com.roland.asb.MessageDispatcher;
 import org.ballerinalang.jvm.api.BRuntime;
 import org.ballerinalang.jvm.api.values.BObject;
 
+import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
+
+import static com.roland.asb.MessageDispatcher.getConnectionStringFromConfig;
+import static com.roland.asb.MessageDispatcher.getQueueNameFromConfig;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class ListenerUtils {
     private static BRuntime runtime;
@@ -14,19 +26,32 @@ public class ListenerUtils {
     private static ArrayList<BObject> services = new ArrayList<>();
     private static ArrayList<BObject> startedServices = new ArrayList<>();
 
-    public static void init(BObject listenerBObject) {
+    public static void init(BObject listenerBObject, IMessageReceiver iMessageReceiver) {
         listenerBObject.addNativeData(AsbConstants.CONSUMER_SERVICES, services);
         listenerBObject.addNativeData(AsbConstants.STARTED_SERVICES, startedServices);
+//        listenerBObject.addNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT, iMessageReceiver);
     }
 
     public static Object registerListener(BObject listenerBObject, BObject service) {
         runtime = BRuntime.getCurrentRuntime();
+//        IMessageReceiver iMessageReceiver = (IMessageReceiver) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
+        try {
+            String connectionString = getConnectionStringFromConfig(service);
+            String entityPath = getQueueNameFromConfig(service);
+            QueueClient receiveClient = new QueueClient(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+            listenerBObject.addNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT, receiveClient);
+        } catch (Exception e) {
+            return AsbUtils.returnErrorValue("Error occurred while initializing the Queue Client");
+        }
+
+        QueueClient receiveClient = (QueueClient) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
+
         if (service == null) {
             return null;
         }
         if (isStarted()) {
             services = (ArrayList<BObject>) listenerBObject.getNativeData(AsbConstants.CONSUMER_SERVICES);
-            startReceivingMessages(service,  listenerBObject);
+            startReceivingMessages(service,  listenerBObject, receiveClient);
         }
         services.add(service);
         return null;
@@ -36,15 +61,16 @@ public class ListenerUtils {
         return started;
     }
 
-    private static void startReceivingMessages(BObject service, BObject listener) {
+    private static void startReceivingMessages(BObject service, BObject listener, QueueClient iMessageReceiver) {
         MessageDispatcher messageDispatcher =
-                new MessageDispatcher(service, runtime);
+                new MessageDispatcher(service, runtime, iMessageReceiver);
         messageDispatcher.receiveMessages(listener);
 
     }
 
     public static Object start(BObject listenerBObject) {
         runtime = BRuntime.getCurrentRuntime();
+        QueueClient iMessageReceiver = (QueueClient) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
         @SuppressWarnings(AsbConstants.UNCHECKED)
         ArrayList<BObject> services =
                 (ArrayList<BObject>) listenerBObject.getNativeData(AsbConstants.CONSUMER_SERVICES);
@@ -57,7 +83,7 @@ public class ListenerUtils {
         for (BObject service : services) {
             if (startedServices == null || !startedServices.contains(service)) {
                 MessageDispatcher messageDispatcher =
-                        new MessageDispatcher(service, runtime);
+                        new MessageDispatcher(service, runtime, iMessageReceiver);
                 messageDispatcher.receiveMessages(listenerBObject);
             }
         }
@@ -66,6 +92,7 @@ public class ListenerUtils {
     }
 
     public static Object detach(BObject listenerBObject, BObject service) {
+        QueueClient iMessageReceiver = (QueueClient) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
         @SuppressWarnings(AsbConstants.UNCHECKED)
         ArrayList<BObject> startedServices =
                 (ArrayList<BObject>) listenerBObject.getNativeData(AsbConstants.STARTED_SERVICES);
@@ -75,7 +102,12 @@ public class ListenerUtils {
         String serviceName = service.getType().getName();
         String queueName = (String) service.getNativeData(AsbConstants.QUEUE_NAME.getValue());
 
-        System.out.println("[ballerina/rabbitmq] Consumer service unsubscribed from the queue " + queueName);
+        try {
+            iMessageReceiver.close();
+            System.out.println("[ballerina/rabbitmq] Consumer service unsubscribed from the queue " + queueName);
+        } catch (Exception e) {
+            return AsbUtils.returnErrorValue("Error occurred while detaching the service");
+        }
 
         listenerBObject.addNativeData(AsbConstants.CONSUMER_SERVICES,
                 removeFromList(services, service));
@@ -85,10 +117,32 @@ public class ListenerUtils {
     }
 
     public static Object stop(BObject listenerBObject) {
+        IMessageReceiver iMessageReceiver = (IMessageReceiver) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
+        if(iMessageReceiver == null) {
+            return AsbUtils.returnErrorValue("IMessageReceiver is not properly initialised.");
+        } else {
+            try {
+                iMessageReceiver.close();
+                System.out.println("[ballerina/rabbitmq] Consumer service stopped");
+            } catch (Exception e) {
+                return AsbUtils.returnErrorValue("Error occurred while stopping the service");
+            }
+        }
         return null;
     }
 
     public static Object abortConnection(BObject listenerBObject) {
+        IMessageReceiver iMessageReceiver = (IMessageReceiver) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
+        if(iMessageReceiver == null) {
+            return AsbUtils.returnErrorValue("IMessageReceiver is not properly initialised.");
+        } else {
+            try {
+                iMessageReceiver.close();
+                System.out.println("[ballerina/rabbitmq] Consumer service stopped");
+            } catch (Exception e) {
+                return AsbUtils.returnErrorValue("Error occurred while stopping the service");
+            }
+        }
         return null;
     }
 
