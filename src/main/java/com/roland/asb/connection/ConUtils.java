@@ -4,6 +4,7 @@ import com.microsoft.azure.servicebus.*;
 import com.microsoft.azure.servicebus.primitives.ConnectionStringBuilder;
 import com.roland.asb.AsbConstants;
 import com.roland.asb.AsbMessageUtils;
+import com.roland.asb.AsbUtils;
 import org.ballerinalang.jvm.api.BStringUtils;
 import org.ballerinalang.jvm.api.values.BArray;
 import org.ballerinalang.jvm.api.values.BMap;
@@ -214,54 +215,287 @@ public class ConUtils {
         return messageBObject;
     }
 
-    // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
-    // message content as a byte array and return message list
-    public static Object receiveTwoBytesMessageViaReceiverConnectionWithConfigurableParameters(
-            IMessageReceiver receiver) throws Exception {
+    /**
+     * Receive Messages with configurable parameters as Map when Receiver Connection is given as a parameter and
+     * message content as a byte array and return Messages object.
+     *
+     * @param receiver Output Receiver connection.
+     * @return Message Object of the received message.
+     */
+    public static Object receiveMessages(IMessageReceiver receiver) throws Exception {
+        try {
+            // receive messages from queue or subscription
+            String receivedMessageId = "";
+            BArrayType sourceArrayType = null;
+            BObject[] bObjectArray = new BObject[2];
+            int i = 0;
 
-        // receive messages from queue or subscription
-        String receivedMessageId = "";
-        BArrayType sourceArrayType = null;
-        BObject[] bObjectArray = new BObject[2];
-        int i = 0;
+            BObject messagesBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
+                    AsbConstants.MESSAGES_OBJECT);
 
-        BObject messagesBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
-                AsbConstants.MESSAGES_OBJECT);
+            System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
+            while (true) {
+                IMessage receivedMessage = receiver.receive(Duration.ofSeconds(5));
 
-        System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
-        while (true) {
-            IMessage receivedMessage = receiver.receive(Duration.ofSeconds(5));
-
-            if (receivedMessage == null) {
-                break;
-            }
-            System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
-            System.out.printf("\t<= Received a message with messageBody %s\n",
-                    new String(receivedMessage.getBody(), UTF_8));
-            receiver.complete(receivedMessage.getLockToken());
+                if (receivedMessage == null) {
+                    break;
+                }
+                System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+                System.out.printf("\t<= Received a message with messageBody %s\n",
+                        new String(receivedMessage.getBody(), UTF_8));
+                receiver.complete(receivedMessage.getLockToken());
 
 //            BString[] ob = new BString[2];
 //            ob[0] = BStringUtils.fromString(new String(receivedMessage.getBody(), UTF_8));
 //            ob[1] = BStringUtils.fromString(new String(receivedMessage.getBody(), UTF_8));
 
-            if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
-                throw new Exception("Received a duplicate message!");
-            }
-            receivedMessageId = receivedMessage.getMessageId();
+                if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
+                    return AsbUtils.returnErrorValue("Received a duplicate message!");
+                }
+                receivedMessageId = receivedMessage.getMessageId();
 
-            BObject messageBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
-                    AsbConstants.MESSAGE_OBJECT);
-            messageBObject.set(AsbConstants.MESSAGE_CONTENT, BValueCreator.createArrayValue(receivedMessage.getBody()));
-            bObjectArray[i] = messageBObject;
-            i = i + 1;
-            sourceArrayType = new BArrayType(messageBObject.getType());
+                BObject messageBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
+                        AsbConstants.MESSAGE_OBJECT);
+                messageBObject.set(AsbConstants.MESSAGE_CONTENT,
+                        BValueCreator.createArrayValue(receivedMessage.getBody()));
+                bObjectArray[i] = messageBObject;
+                i = i + 1;
+                sourceArrayType = new BArrayType(messageBObject.getType());
+            }
+            System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+            if(sourceArrayType != null) {
+                messagesBObject.set(AsbConstants.MESSAGES_CONTENT,
+                        BValueCreator.createArrayValue(bObjectArray, sourceArrayType));
+                messagesBObject.set(AsbConstants.DELIVERY_TAG, i);
+            }
+            return messagesBObject;
+        } catch (Exception e) {
+            return AsbUtils.returnErrorValue(e.getMessage());
         }
-        System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
-        if(sourceArrayType != null) {
-            messagesBObject.set(AsbConstants.MESSAGES_CONTENT, BValueCreator.createArrayValue(bObjectArray, sourceArrayType));
-            messagesBObject.set(AsbConstants.DELIVERY_TAG, i);
+    }
+
+    /**
+     * Send Batch of Messages with configurable parameters when Sender Connection is given as a parameter and
+     * message content as a byte array, optional parameters as a BMap and maximum message count in a batch as int.
+     *
+     * @param sender Input Sender connection.
+     * @param content Input message content as byte array
+     * @param parameters Input message optional parameters specified as a BMap
+     * @param properties Input Message properties
+     * @param maxMessageCount Maximum no. of messages in a batch
+     */
+    public static void sendBatchMessage(IMessageSender sender, BArray content, BMap<String, String> parameters,
+                                        BMap<String, String> properties, int maxMessageCount) throws Exception {
+        Map<String,String> map = toStringMap(parameters);
+
+        String contentType = "";
+        String messageId = UUID.randomUUID().toString();
+        String to = "";
+        String replyTo = "";
+        String label = "";
+        String sessionId = "";
+        String correlationId = "";
+        int timeToLive = 1;
+        if (map.containsKey("contentType")) {
+            contentType = (String)map.get("contentType");
         }
-        return messagesBObject;
+        if (map.containsKey("to")) {
+            to = (String) map.get("to");
+        }
+        if (map.containsKey("replyTo")) {
+            replyTo = (String) map.get("replyTo");
+        }
+        if (map.containsKey("label")) {
+            label = (String) map.get("label");
+        }
+        if (map.containsKey("sessionId")) {
+            sessionId = (String) map.get("sessionId");
+        }
+        if (map.containsKey("correlationId")) {
+            correlationId = (String) map.get("correlationId");
+        }
+        if (map.containsKey("timeToLive")) {
+            timeToLive = Integer.parseInt(map.get("timeToLive"));
+        }
+
+        try {
+            List<IMessage> messages = new ArrayList<>();
+
+            for(int i = 0; i < maxMessageCount; i++) {
+                IMessage message = new Message();
+                if (map.containsKey("messageId")) {
+                    messageId = (String) map.get("messageId");
+                } else {
+                    messageId = UUID.randomUUID().toString();;
+                }
+                message.setMessageId(messageId);
+                message.setTimeToLive(Duration.ofMinutes(timeToLive));
+                byte[] byteArray = content.get(i).toString().getBytes();
+                message.setBody(byteArray);
+                message.setContentType(contentType);
+                message.setMessageId(messageId);
+                message.setTo(to);
+                message.setReplyTo(replyTo);
+                message.setLabel(label);
+                message.setSessionId(sessionId);
+                message.setCorrelationId(correlationId);
+                Map<String,String> propertiesMap = toStringMap(properties);
+                message.setProperties(propertiesMap);
+
+                messages.add(message);
+                System.out.printf("\t=> Sending a message with messageId %s\n", message.getMessageId());
+            }
+
+            // Send messages to queue or topic
+            System.out.printf("\tSending messages to %s ...\n", sender.getEntityPath());
+            sender.sendBatch(messages);
+            System.out.printf("\t=> Sent %s messages\n", messages.size());
+        } catch(Exception e) {
+            throw AsbUtils.returnErrorValue(e.getMessage());
+        }
+    }
+
+    /**
+     * Receive Batch of Messages with configurable parameters as Map when Receiver Connection is given as a parameter,
+     * message content as a byte array, maximum message count in a batch as int and return Messages object.
+     *
+     * @param receiver Output Receiver connection.
+     * @param maxMessageCount Maximum no. of messages in a batch
+     * @return Message Object of the received message.
+     */
+    public static Object receiveBatchMessage(IMessageReceiver receiver, int maxMessageCount) throws Exception {
+        try {
+            // receive messages from queue or subscription
+            String receivedMessageId = "";
+            BArrayType sourceArrayType = null;
+            BObject[] bObjectArray = new BObject[maxMessageCount];
+            int i = 0;
+
+            BObject messagesBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
+                    AsbConstants.MESSAGES_OBJECT);
+
+            System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
+            for(int j=0; j<maxMessageCount; j++) {
+                IMessage receivedMessage = receiver.receive(Duration.ofSeconds(5));
+
+                if (receivedMessage == null) {
+                    continue;
+                }
+                System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+                System.out.printf("\t<= Received a message with messageBody %s\n",
+                        new String(receivedMessage.getBody(), UTF_8));
+                receiver.complete(receivedMessage.getLockToken());
+
+                if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
+                    return AsbUtils.returnErrorValue("Received a duplicate message!");
+                }
+                receivedMessageId = receivedMessage.getMessageId();
+
+                BObject messageBObject = BValueCreator.createObjectValue(AsbConstants.PACKAGE_ID_ASB,
+                        AsbConstants.MESSAGE_OBJECT);
+                messageBObject.set(AsbConstants.MESSAGE_CONTENT,
+                        BValueCreator.createArrayValue(receivedMessage.getBody()));
+                bObjectArray[i] = messageBObject;
+                i = i + 1;
+                sourceArrayType = new BArrayType(messageBObject.getType());
+            }
+            System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+            if(sourceArrayType != null) {
+                messagesBObject.set(AsbConstants.MESSAGES_CONTENT,
+                        BValueCreator.createArrayValue(bObjectArray, sourceArrayType));
+                messagesBObject.set(AsbConstants.DELIVERY_TAG, i);
+            }
+            return messagesBObject;
+        } catch (Exception e) {
+            return AsbUtils.returnErrorValue(e.getMessage());
+        }
+    }
+
+    /**
+     * Complete Messages from Queue or Subscription based on messageLockToken
+     *
+     * @param receiver Output Receiver connection.
+     */
+    public static void completeMessages(IMessageReceiver receiver)
+            throws Exception {
+        try {
+            // receive messages from queue
+            String receivedMessageId = "";
+
+            System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
+            while (true) {
+                IMessage receivedMessage = receiver.receive(Duration.ofSeconds(5));
+
+                if (receivedMessage == null) {
+                    break;
+                }
+                System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+                System.out.printf("\t<= Completes a message with messageLockToken %s\n",
+                        receivedMessage.getLockToken());
+                receiver.complete(receivedMessage.getLockToken());
+                if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
+                    throw AsbUtils.returnErrorValue("Received a duplicate message!");
+                }
+                receivedMessageId = receivedMessage.getMessageId();
+            }
+            System.out.printf("\tDone completing a message using its lock token from %s\n", receiver.getEntityPath());
+        } catch (Exception e) {
+            throw AsbUtils.returnErrorValue(e.getMessage());
+        }
+    }
+
+    /**
+     * Completes a single message from Queue or Subscription based on messageLockToken
+     *
+     * @param receiver Output Receiver connection.
+     */
+    public static void completeOneMessage(IMessageReceiver receiver) throws Exception {
+        try {
+            System.out.printf("\nWaiting up to default server wait time for messages from %s ...\n",
+                    receiver.getEntityPath());
+
+            IMessage receivedMessage = receiver.receive();
+
+            if (receivedMessage != null) {
+                System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+                System.out.printf("\t<= Completes a message with messageLockToken %s\n",
+                        receivedMessage.getLockToken());
+                receiver.complete(receivedMessage.getLockToken());
+
+                System.out.printf("\tDone completing a message using its lock token from %s\n",
+                        receiver.getEntityPath());
+            } else {
+                System.out.println("\tNo message in the queue\n");
+            }
+        } catch (Exception e) {
+            throw AsbUtils.returnErrorValue(e.getMessage());
+        }
+    }
+
+    /**
+     * Abandon message & make available again for processing from Queue or Subscription based on messageLockToken
+     *
+     * @param receiver Output Receiver connection.
+     */
+    public static void abandonMessage(IMessageReceiver receiver) throws Exception {
+        try {
+            System.out.printf("\n\tWaiting up to default server wait time for messages from %s ...\n",
+                    receiver.getEntityPath());
+            IMessage receivedMessage = receiver.receive();
+
+            if (receivedMessage != null) {
+                System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+                System.out.printf("\t<= Abandon a message with messageLockToken %s\n", receivedMessage.getLockToken());
+                receiver.abandon(receivedMessage.getLockToken());
+
+                System.out.printf("\tDone abandoning a message using its lock token from %s\n", receiver.getEntityPath());
+
+            } else {
+                System.out.println("\t<= No message in the queue \n");;
+            }
+        } catch (Exception e) {
+            throw AsbUtils.returnErrorValue(e.getMessage());
+        }
     }
 
     // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and

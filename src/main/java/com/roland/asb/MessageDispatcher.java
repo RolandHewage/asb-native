@@ -98,6 +98,32 @@ public class MessageDispatcher {
 //
 //        }
 
+//        try{
+//            IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+//            String receivedMessageId = "";
+//
+//            System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
+//            while (true) {
+//                CompletableFuture<IMessage> mg = receiver.receiveAsync();
+//                IMessage receivedMessage = mg.get();
+//
+//                if (receivedMessage == null) {
+//                    break;
+//                }
+//                System.out.printf("\t<= Received a message with messageId %s\n", receivedMessage.getMessageId());
+//                System.out.printf("\t<= Received a message with messageBody %s\n", new String(receivedMessage.getBody(), UTF_8));
+//                handleDispatch(receivedMessage.getBody());
+//                receiver.complete(receivedMessage.getLockToken());
+//                if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
+//                    throw new Exception("Received a duplicate message!");
+//                }
+//                receivedMessageId = receivedMessage.getMessageId();
+//            }
+//            System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+//        } catch (Exception e) {
+//
+//        }
+
         try{
 //            QueueClient receiveClient = new QueueClient(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
             ExecutorService executorService = Executors.newSingleThreadExecutor();

@@ -1,9 +1,6 @@
 package com.roland.asb.connection;
 
-import com.microsoft.azure.servicebus.IMessage;
-import com.microsoft.azure.servicebus.IMessageReceiver;
-import com.microsoft.azure.servicebus.QueueClient;
-import com.microsoft.azure.servicebus.ReceiveMode;
+import com.microsoft.azure.servicebus.*;
 import com.microsoft.azure.servicebus.primitives.ConnectionStringBuilder;
 import com.roland.asb.AsbConstants;
 import com.roland.asb.AsbUtils;
@@ -39,6 +36,8 @@ public class ListenerUtils {
             String connectionString = getConnectionStringFromConfig(service);
             String entityPath = getQueueNameFromConfig(service);
             QueueClient receiveClient = new QueueClient(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+//            IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(
+//                    new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
             listenerBObject.addNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT, receiveClient);
         } catch (Exception e) {
             return AsbUtils.returnErrorValue("Error occurred while initializing the Queue Client");
