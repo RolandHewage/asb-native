@@ -22,6 +22,7 @@ public class ListenerUtils {
     private static boolean started = false;
     private static ArrayList<BObject> services = new ArrayList<>();
     private static ArrayList<BObject> startedServices = new ArrayList<>();
+    private static boolean runn = false;
 
     public static void init(BObject listenerBObject, IMessageReceiver iMessageReceiver) {
         listenerBObject.addNativeData(AsbConstants.CONSUMER_SERVICES, services);
@@ -35,15 +36,15 @@ public class ListenerUtils {
         try {
             String connectionString = getConnectionStringFromConfig(service);
             String entityPath = getQueueNameFromConfig(service);
-            QueueClient receiveClient = new QueueClient(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
-//            IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(
-//                    new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
-            listenerBObject.addNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT, receiveClient);
+//            QueueClient receiveClient = new QueueClient(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+            IMessageReceiver receiver = ClientFactory.createMessageReceiverFromConnectionStringBuilder(
+                    new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+            listenerBObject.addNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT, receiver);
         } catch (Exception e) {
             return AsbUtils.returnErrorValue("Error occurred while initializing the Queue Client");
         }
 
-        QueueClient receiveClient = (QueueClient) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
+        IMessageReceiver receiveClient = (IMessageReceiver) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
 
         if (service == null) {
             return null;
@@ -60,7 +61,7 @@ public class ListenerUtils {
         return started;
     }
 
-    private static void startReceivingMessages(BObject service, BObject listener, QueueClient iMessageReceiver) {
+    private static void startReceivingMessages(BObject service, BObject listener, IMessageReceiver iMessageReceiver) {
         MessageDispatcher messageDispatcher =
                 new MessageDispatcher(service, runtime, iMessageReceiver);
         messageDispatcher.receiveMessages(listener);
@@ -69,7 +70,7 @@ public class ListenerUtils {
 
     public static Object start(BObject listenerBObject) {
         runtime = BRuntime.getCurrentRuntime();
-        QueueClient iMessageReceiver = (QueueClient) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
+        IMessageReceiver iMessageReceiver = (IMessageReceiver) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
         @SuppressWarnings(AsbConstants.UNCHECKED)
         ArrayList<BObject> services =
                 (ArrayList<BObject>) listenerBObject.getNativeData(AsbConstants.CONSUMER_SERVICES);
@@ -79,6 +80,7 @@ public class ListenerUtils {
         if (services == null || services.isEmpty()) {
             return null;
         }
+        runn = true;
         for (BObject service : services) {
             if (startedServices == null || !startedServices.contains(service)) {
                 MessageDispatcher messageDispatcher =
@@ -91,7 +93,7 @@ public class ListenerUtils {
     }
 
     public static Object detach(BObject listenerBObject, BObject service) {
-        QueueClient iMessageReceiver = (QueueClient) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
+        IMessageReceiver iMessageReceiver = (IMessageReceiver) listenerBObject.getNativeData(AsbConstants.CONNECTION_NATIVE_OBJECT);
         @SuppressWarnings(AsbConstants.UNCHECKED)
         ArrayList<BObject> startedServices =
                 (ArrayList<BObject>) listenerBObject.getNativeData(AsbConstants.STARTED_SERVICES);
@@ -112,6 +114,7 @@ public class ListenerUtils {
                 removeFromList(services, service));
         listenerBObject.addNativeData(AsbConstants.STARTED_SERVICES,
                 removeFromList(startedServices, service));
+        runn = false;
         return null;
     }
 
@@ -157,6 +160,10 @@ public class ListenerUtils {
             arrayList.remove(objectValue);
         }
         return arrayList;
+    }
+
+    public static boolean isClosing() {
+        return runn;
     }
 }
 

@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static com.roland.asb.AsbConstants.*;
+import static com.roland.asb.connection.ListenerUtils.isClosing;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class MessageDispatcher {
@@ -35,11 +36,11 @@ public class MessageDispatcher {
     private String queueName;
     private String connectionKey;
     private BRuntime runtime;
-    private QueueClient receiver;
+    private IMessageReceiver receiver;
     private static final StrandMetadata ON_MESSAGE_METADATA = new StrandMetadata(ORG_NAME, ASB,
             ASB_VERSION, FUNC_ON_MESSAGE);
 
-    public MessageDispatcher(BObject service, BRuntime runtime, QueueClient iMessageReceiver) {
+    public MessageDispatcher(BObject service, BRuntime runtime, IMessageReceiver iMessageReceiver) {
         this.service = service;
         this.queueName = getQueueNameFromConfig(service);
         this.connectionKey = getConnectionStringFromConfig(service);
@@ -124,17 +125,26 @@ public class MessageDispatcher {
 //
 //        }
 
-        try{
-//            QueueClient receiveClient = new QueueClient(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
-            ExecutorService executorService = Executors.newSingleThreadExecutor();
-            this.registerReceiver(receiver, executorService);
+//        try{
+////            QueueClient receiveClient = new QueueClient(new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
+//            ExecutorService executorService = Executors.newSingleThreadExecutor();
+//            this.registerReceiver(receiver, executorService);
+//
+//            waitForEnter(120);
+//
+//            System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
+//            receiver.close();
+//        } catch (Exception e) {
+//
+//        }
 
-            waitForEnter(120);
+        try {
+            ExecutorService executorService = Executors.newSingleThreadExecutor();
+            this.pumpMessage(receiver, executorService);
 
             System.out.printf("\tDone receiving messages from %s\n", receiver.getEntityPath());
-            receiver.close();
         } catch (Exception e) {
-
+            AsbUtils.returnErrorValue(e.getMessage());
         }
 
         ArrayList<BObject> startedServices =
@@ -143,9 +153,36 @@ public class MessageDispatcher {
         service.addNativeData(AsbConstants.QUEUE_NAME.getValue(), queueName);
     }
 
-    public void registerReceiver(QueueClient queueClient, ExecutorService executorService) throws Exception {
+    public void pumpMessage(IMessageReceiver receiver, ExecutorService executorService) {
+        if(isClosing()) {
+            CompletableFuture<IMessage> receiveMessageFuture = receiver.receiveAsync(Duration.ofSeconds(5));
+            System.out.printf("\n\tWaiting up to 5 seconds for messages from %s ...\n", receiver.getEntityPath());
 
-        System.out.println("Hello Baby");
+            receiveMessageFuture.handleAsync((message, receiveEx) -> {
+                if (receiveEx != null) {
+                    System.out.println("Receiving message from entity failed.");
+                    pumpMessage(receiver, executorService);
+                } else if (message == null) {
+                    System.out.println("Receive from entity returned no messages.");
+                    pumpMessage(receiver, executorService);
+                } else {
+                    System.out.printf("\t<= Received a message with messageId %s\n", message.getMessageId());
+                    System.out.printf("\t<= Received a message with messageBody %s\n", new String(message.getBody(), UTF_8));
+                    handleDispatch(message.getBody());
+                    try {
+                        receiver.complete(message.getLockToken());
+                    } catch (Exception e) {
+                        return AsbUtils.returnErrorValue(e.getMessage());
+                    }
+                    pumpMessage(receiver, executorService);
+                    return null;
+                }
+                return null;
+            }, executorService);
+        }
+    }
+
+    public void registerReceiver(QueueClient queueClient, ExecutorService executorService) throws Exception {
         // register the RegisterMessageHandler callback with executor service
         queueClient.registerMessageHandler(new IMessageHandler() {
                                                // callback invoked when the message handler loop has obtained a message
