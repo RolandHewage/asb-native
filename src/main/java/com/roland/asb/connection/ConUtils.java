@@ -78,12 +78,9 @@ public class ConUtils {
 
     // Send Message with configurable parameters when Sender Connection is given as a parameter and
     // message content as a byte array
-    public static void sendBytesMessageWithConfigurableParameters(IMessageSender sender, BArray content,
-                                                                  String contentType, String messageId, String to,
-                                                                  String replyTo, String label,
-                                                                  String sessionId, String correlationId,
-                                                                  BMap<String, String> properties, int timeToLive)
-            throws Exception {
+    public static void sendMessage(IMessageSender sender, BArray content, String contentType, String messageId,
+                                   String to, String replyTo, String label, String sessionId, String correlationId,
+                                   BMap<String, String> properties, int timeToLive) throws Exception {
         // Send messages to queue
         System.out.printf("\tSending messages to %s ...\n", sender.getEntityPath());
         IMessage message = new Message();
@@ -119,11 +116,9 @@ public class ConUtils {
 
     // Send Message with configurable parameters as Map when Sender Connection is given as a parameter and
     // message content as a byte array
-    public static void sendBytesMessageViaSenderConnectionWithConfigurableParameters(IMessageSender sender,
-                                                                                     BArray content,
-                                                                                     BMap<String, String> parameters,
-                                                                                     BMap<String, String> properties)
-            throws Exception {
+    public static void sendMessageWithConfigurableParameters(IMessageSender sender, BArray content,
+                                                             BMap<String, String> parameters,
+                                                             BMap<String, String> properties) throws Exception {
         Map<String,String> map = toStringMap(parameters);
 
         String contentType = "";
@@ -160,9 +155,7 @@ public class ConUtils {
         }
 
         // Send messages to queue
-        LOG.info("\tSending messages to  ...\n");
         System.out.printf("\tSending messages to %s ...\n", sender.getEntityPath());
-        LOG.info("\tSending messages to  ...\n");
         IMessage message = new Message();
         message.setMessageId(messageId);
         message.setTimeToLive(Duration.ofMinutes(timeToLive));
@@ -184,9 +177,7 @@ public class ConUtils {
 
     // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
     // message content as a byte array and return message list
-    public static Object receiveOneBytesMessageViaReceiverConnectionWithConfigurableParameters(
-            IMessageReceiver receiver) throws Exception {
-
+    public static Object receiveMessage(IMessageReceiver receiver) throws Exception {
         // receive messages from queue or subscription
         String receivedMessageId = "";
 
