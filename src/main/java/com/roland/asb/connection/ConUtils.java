@@ -22,40 +22,52 @@ import java.util.logging.Logger;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+/**
+ * Util class used to bridge the Asb connector's native code and the Ballerina API.
+ */
 public class ConUtils {
 
     private static final Logger LOG = Logger.getLogger(ConUtils.class.getName());
 
     private String connectionString;
 
-    public ConUtils() {
-    }
-
-    public ConUtils(String connectionString) {
-        this.connectionString = connectionString;
-    }
-
-    // Create Sender Connection
+    /**
+     * Creates a Asb Sender Connection using the given connection parameters.
+     *
+     * @param connectionString Azure Service Bus Primary key string used to initialize the connection.
+     * @param entityPath Resource entity path.
+     * @return Asb Sender Connection object.
+     */
     public static IMessageSender createSenderConnection(String connectionString, String entityPath) throws Exception {
         try{
             IMessageSender sender = ClientFactory.createMessageSenderFromConnectionStringBuilder(
                     new ConnectionStringBuilder(connectionString, entityPath));
             return sender;
         } catch (Exception e) {
-            throw e;
+            throw AsbUtils.returnErrorValue(e.getMessage());
         }
     }
 
-    // Close Receiver Connection
+    /**
+     * Closes the Asb Sender Connection using the given connection parameters.
+     *
+     * @param sender Created IMessageSender instance used to close the connection.
+     */
     public static void closeSenderConnection(IMessageSender sender) throws Exception {
         try{
             sender.close();
         } catch (Exception e) {
-            throw e;
+            throw AsbUtils.returnErrorValue(e.getMessage());
         }
     }
 
-    // Create Receiver Connection
+    /**
+     * Creates a Asb Receiver Connection using the given connection parameters.
+     *
+     * @param connectionString Primary key string used to initialize the connection.
+     * @param entityPath Resource entity path.
+     * @return Asb Receiver Connection object.
+     */
     public static IMessageReceiver createReceiverConnection(String connectionString, String entityPath)
             throws Exception {
         try{
@@ -63,21 +75,55 @@ public class ConUtils {
                     new ConnectionStringBuilder(connectionString, entityPath), ReceiveMode.PEEKLOCK);
             return receiver;
         } catch (Exception e) {
-            throw e;
+            throw AsbUtils.returnErrorValue(e.getMessage());
         }
     }
 
-    // Close Receiver Connection
+    /**
+     * Closes the Asb Receiver Connection using the given connection parameters.
+     *
+     * @param receiver Created IMessageReceiver instance used to close the connection.
+     */
     public static void closeReceiverConnection(IMessageReceiver receiver) throws Exception {
         try{
             receiver.close();
         } catch (Exception e) {
-            throw e;
+            throw AsbUtils.returnErrorValue(e.getMessage());
         }
     }
 
-    // Send Message with configurable parameters when Sender Connection is given as a parameter and
-    // message content as a byte array
+    /**
+     * Convert BMap to Map.
+     *
+     * @param map Input BMap used to convert to Map.
+     * @return Converted Map object.
+     */
+    public static Map<String, String> toStringMap(BMap map) {
+        Map<String, String> returnMap = new HashMap<>();
+        if (map != null) {
+            for (Object aKey : map.getKeys()) {
+                returnMap.put(aKey.toString(), map.get(aKey).toString());
+            }
+        }
+        return returnMap;
+    }
+
+    /**
+     * Send Message with configurable parameters when Sender Connection is given as a parameter and
+     * message content as a byte array.
+     *
+     * @param sender Input Sender connection.
+     * @param content Input message content as byte array
+     * @param contentType Input message content type
+     * @param messageId Input Message Id
+     * @param to Input Message to
+     * @param replyTo Input Message reply to
+     * @param label Input Message label
+     * @param sessionId Input Message session Id
+     * @param correlationId Input Message correlationId
+     * @param properties Input Message properties
+     * @param timeToLive Input Message time to live in minutes
+     */
     public static void sendMessage(IMessageSender sender, BArray content, String contentType, String messageId,
                                    String to, String replyTo, String label, String sessionId, String correlationId,
                                    BMap<String, String> properties, int timeToLive) throws Exception {
@@ -103,19 +149,15 @@ public class ConUtils {
         System.out.printf("\t=> Sent a message with messageId %s\n", message.getMessageId());
     }
 
-    // Convert BMap to Map
-    public static Map<String, String> toStringMap(BMap map) {
-        Map<String, String> returnMap = new HashMap<>();
-        if (map != null) {
-            for (Object aKey : map.getKeys()) {
-                returnMap.put(aKey.toString(), map.get(aKey).toString());
-            }
-        }
-        return returnMap;
-    }
-
-    // Send Message with configurable parameters as Map when Sender Connection is given as a parameter and
-    // message content as a byte array
+    /**
+     * Send Message with configurable parameters when Sender Connection is given as a parameter and
+     * message content as a byte array and optional parameters as a BMap.
+     *
+     * @param sender Input Sender connection.
+     * @param content Input message content as byte array
+     * @param parameters Input message optional parameters specified as a BMap
+     * @param properties Input Message properties
+     */
     public static void sendMessageWithConfigurableParameters(IMessageSender sender, BArray content,
                                                              BMap<String, String> parameters,
                                                              BMap<String, String> properties) throws Exception {
@@ -175,8 +217,13 @@ public class ConUtils {
         System.out.printf("\t=> Sent a message with messageId %s\n", message.getMessageId());
     }
 
-    // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
-    // message content as a byte array and return message list
+    /**
+     * Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
+     * message content as a byte array and return Message object.
+     *
+     * @param receiver Output Receiver connection.
+     * @return Message Object of the received message.
+     */
     public static Object receiveMessage(IMessageReceiver receiver) throws Exception {
         // receive messages from queue or subscription
         String receivedMessageId = "";
@@ -193,7 +240,7 @@ public class ConUtils {
                 new String(receivedMessage.getBody(), UTF_8));
         receiver.complete(receivedMessage.getLockToken());
         if (receivedMessageId.contentEquals(receivedMessage.getMessageId())) {
-            throw new Exception("Received a duplicate message!");
+            return AsbUtils.returnErrorValue("Received a duplicate message!");
         }
         receivedMessageId = receivedMessage.getMessageId();
 
@@ -479,8 +526,8 @@ public class ConUtils {
                 System.out.printf("\t<= Abandon a message with messageLockToken %s\n", receivedMessage.getLockToken());
                 receiver.abandon(receivedMessage.getLockToken());
 
-                System.out.printf("\tDone abandoning a message using its lock token from %s\n", receiver.getEntityPath());
-
+                System.out.printf("\tDone abandoning a message using its lock token from %s\n",
+                        receiver.getEntityPath());
             } else {
                 System.out.println("\t<= No message in the queue \n");;
             }
@@ -488,6 +535,20 @@ public class ConUtils {
             throw AsbUtils.returnErrorValue(e.getMessage());
         }
     }
+
+    public ConUtils() {
+    }
+
+    public ConUtils(String connectionString) {
+        this.connectionString = connectionString;
+    }
+
+
+
+
+
+
+
 
     // Receive Message with configurable parameters as Map when Receiver Connection is given as a parameter and
     // message content as a byte array and return message list
@@ -594,6 +655,11 @@ public class ConUtils {
 
         receiver.close();
     }
+
+
+
+
+
 
     // -----------------------------------------------------------------------------------------------------------------
 
